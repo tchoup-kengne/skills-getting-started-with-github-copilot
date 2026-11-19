@@ -10,18 +10,36 @@
     <header>
       <h1>Mergington High School</h1>
       <h2>Extracurricular Activities</h2>
+      <nav class="main-nav" aria-label="Primary navigation">
+        <ul>
+          <li><a class="active" href="#home" data-page="home" aria-current="page">Home</a></li>
+          <li id="participants-nav" class="hidden"><a href="#participants" data-page="participants">Participant</a></li>
+          <li id="activities-nav" class="hidden"><a href="#activities" data-page="activities">Activity</a></li>
+          <li id="auth-nav" class="auth-nav"></li>
+        </ul>
+      </nav>
     </header>
 
     <main>
-      <section id="activities-container">
-        <h3>Available Activities</h3>
-        <div id="activities-list">
-          <!-- Activities will be loaded here -->
-          <p>Loading activities...</p>
+      <section id="home" class="page active">
+        <div id="auth-panel">
+          <h3>Sign In</h3>
+          <form id="login-form">
+            <div class="form-group">
+              <label for="login-email">Email:</label>
+              <input type="email" id="login-email" required autocomplete="username" />
+            </div>
+            <div class="form-group">
+              <label for="login-password">Password:</label>
+              <input type="password" id="login-password" required autocomplete="current-password" />
+            </div>
+            <button type="submit">Sign In</button>
+          </form>
         </div>
-      </section>
-
-      <section id="signup-container">
+        <div id="signed-in-panel" class="hidden">
+          <p id="signed-in-message"></p>
+          <button id="logout-button" type="button">Sign Out</button>
+        </div>
         <h3>Sign Up for an Activity</h3>
         <form id="signup-form">
           <div class="form-group">
@@ -38,6 +56,20 @@
           <button type="submit">Sign Up</button>
         </form>
         <div id="message" class="hidden"></div>
+      </section>
+
+      <section id="participants" class="page hidden">
+        <h3>All Participants</h3>
+        <div id="participants-list">
+          <p>Loading participants...</p>
+        </div>
+      </section>
+
+      <section id="activities" class="page hidden">
+        <h3>Available Activities</h3>
+        <div id="activities-list">
+          <p>Loading activities...</p>
+        </div>
       </section>
     </main>
 

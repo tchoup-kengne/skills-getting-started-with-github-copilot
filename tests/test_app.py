@@ -17,6 +17,13 @@ def reset_activities():
 @pytest.fixture
 def client():
     with TestClient(app) as test_client:
+        test_client.post(
+            "/auth/login",
+            params={
+                "email": "admin@mergington.edu",
+                "password": "mergington123",
+            },
+        )
         yield test_client
 
 
@@ -140,3 +147,25 @@ def test_unregister_rejects_unknown_activity(client):
     # Assert
     assert response.status_code == 404
     assert response.json()["detail"] == "Activity not found"
+
+
+def test_activities_require_sign_in():
+    with TestClient(app) as anonymous_client:
+        response = anonymous_client.get("/activities")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Sign-in required"
+
+
+def test_login_rejects_invalid_credentials():
+    with TestClient(app) as anonymous_client:
+        response = anonymous_client.post(
+            "/auth/login",
+            params={
+                "email": "admin@mergington.edu",
+                "password": "wrong-password",
+            },
+        )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid email or password"

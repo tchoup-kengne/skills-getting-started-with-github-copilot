@@ -3,16 +3,191 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
+  const participantsList = document.getElementById("participants-list");
+  const navLinks = document.querySelectorAll(".main-nav a");
+  const loginForm = document.getElementById("login-form");
+  const loginEmail = document.getElementById("login-email");
+  const loginPassword = document.getElementById("login-password");
+  const authPanel = document.getElementById("auth-panel");
+  const signedInPanel = document.getElementById("signed-in-panel");
+  const signedInMessage = document.getElementById("signed-in-message");
+  const logoutButton = document.getElementById("logout-button");
+  const participantsNav = document.getElementById("participants-nav");
+  const activitiesNav = document.getElementById("activities-nav");
+  let authenticated = false;
+
+  function showPage(pageName) {
+    let validPage = ["home", "participants", "activities"].includes(pageName)
+      ? pageName
+      : "home";
+    if (!authenticated && ["participants", "activities"].includes(validPage)) {
+      validPage = "home";
+      history.replaceState(null, "", "#home");
+    }
+
+    document.querySelectorAll(".page").forEach((page) => {
+      const active = page.id === validPage;
+      page.classList.toggle("active", active);
+      page.classList.toggle("hidden", !active);
+    });
+
+    navLinks.forEach((link) => {
+      const active = link.dataset.page === validPage;
+      link.classList.toggle("active", active);
+      if (active) {
+        link.setAttribute("aria-current", "page");
+      } else {
+        link.removeAttribute("aria-current");
+      }
+    });
+  }
+
+  function setAuthenticated(email) {
+    authenticated = Boolean(email);
+    participantsNav.classList.toggle("hidden", !authenticated);
+    activitiesNav.classList.toggle("hidden", !authenticated);
+    authPanel.classList.toggle("hidden", authenticated);
+    signedInPanel.classList.toggle("hidden", !authenticated);
+    signedInMessage.textContent = authenticated ? `Signed in as ${email}` : "";
+
+    if (!authenticated) {
+      showPage("home");
+      history.replaceState(null, "", "#home");
+    }
+  }
+
+  async function checkSession() {
+    try {
+      const response = await fetch("/auth/session", { cache: "no-store" });
+      const result = await response.json();
+      setAuthenticated(result.authenticated ? result.email : null);
+      if (authenticated) {
+        await fetchActivityOptions();
+        await fetchActivities();
+      } else {
+        await fetchActivityOptions();
+      }
+      showPage(window.location.hash.slice(1));
+    } catch (error) {
+      setAuthenticated(null);
+      await fetchActivityOptions();
+      console.error("Error checking sign-in session:", error);
+    }
+  }
+
+  function renderParticipants(activities) {
+    const memberships = new Map();
+
+    Object.entries(activities).forEach(([activityName, details]) => {
+      details.participants.forEach((participant) => {
+        if (!memberships.has(participant)) {
+          memberships.set(participant, []);
+        }
+        memberships.get(participant).push(activityName);
+      });
+    });
+
+    participantsList.innerHTML = "";
+
+    if (memberships.size === 0) {
+      participantsList.innerHTML = '<p class="no-participants">No participants yet</p>';
+      return;
+    }
+
+    [...memberships.entries()]
+      .sort(([emailA], [emailB]) => emailA.localeCompare(emailB))
+      .forEach(([participant, activityNames]) => {
+        const card = document.createElement("div");
+        card.className = "participant-card";
+
+        const details = document.createElement("div");
+        const name = document.createElement("strong");
+        name.textContent = participant;
+        const membership = document.createElement("p");
+        membership.className = "participant-memberships";
+        membership.textContent = `Activities: ${activityNames.join(", ")}`;
+        details.append(name, membership);
+
+        const actions = document.createElement("div");
+        actions.className = "participant-actions";
+
+        activityNames.forEach((activityName) => {
+          const removeButton = document.createElement("button");
+          removeButton.type = "button";
+          removeButton.className = "remove-participant";
+          removeButton.textContent = `Remove from ${activityName}`;
+          removeButton.addEventListener("click", async () => {
+            removeButton.disabled = true;
+            try {
+              const response = await fetch(
+                `/activities/${encodeURIComponent(activityName)}/signup?email=${encodeURIComponent(participant)}`,
+                { method: "DELETE" }
+              );
+              const result = await response.json();
+
+              if (response.ok) {
+                await fetchActivities();
+                messageDiv.textContent = result.message;
+                messageDiv.className = "success";
+              } else {
+                messageDiv.textContent = result.detail || "Failed to unregister participant";
+                messageDiv.className = "error";
+                removeButton.disabled = false;
+              }
+              messageDiv.classList.remove("hidden");
+              setTimeout(() => messageDiv.classList.add("hidden"), 5000);
+            } catch (error) {
+              removeButton.disabled = false;
+              messageDiv.textContent = "Failed to unregister participant.";
+              messageDiv.className = "error";
+              messageDiv.classList.remove("hidden");
+              console.error("Error unregistering participant:", error);
+            }
+          });
+          actions.appendChild(removeButton);
+        });
+
+        card.append(details, actions);
+        participantsList.appendChild(card);
+      });
+  }
+
+  async function fetchActivityOptions() {
+    try {
+      const response = await fetch("/activities/options", { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error("Failed to load activity options");
+      }
+      const activityNames = await response.json();
+      activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
+      activityNames.forEach((name) => {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        activitySelect.appendChild(option);
+      });
+    } catch (error) {
+      activitySelect.innerHTML = '<option value="">Unable to load activities</option>';
+      console.error("Error fetching activity options:", error);
+    }
+  }
 
   // Function to fetch activities from API
   async function fetchActivities() {
     try {
       const response = await fetch("/activities", { cache: "no-store" });
+      if (response.status === 401) {
+        setAuthenticated(null);
+        return;
+      }
+      if (!response.ok) {
+        throw new Error("Failed to load activities");
+      }
       const activities = await response.json();
 
       // Clear loading message
       activitiesList.innerHTML = "";
-      activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
+      renderParticipants(activities);
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
@@ -112,11 +287,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         activitiesList.appendChild(activityCard);
 
-        // Add option to select dropdown
-        const option = document.createElement("option");
-        option.value = name;
-        option.textContent = name;
-        activitySelect.appendChild(option);
       });
     } catch (error) {
       activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
@@ -145,7 +315,10 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
-        await fetchActivities();
+        await fetchActivityOptions();
+        if (authenticated) {
+          await fetchActivities();
+        }
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
@@ -165,6 +338,48 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const response = await fetch(
+        `/auth/login?email=${encodeURIComponent(loginEmail.value)}&password=${encodeURIComponent(loginPassword.value)}`,
+        { method: "POST" }
+      );
+      const result = await response.json();
+      if (response.ok) {
+        loginForm.reset();
+        setAuthenticated(result.email);
+        await fetchActivities();
+        showPage("activities");
+        history.pushState(null, "", "#activities");
+      } else {
+        messageDiv.textContent = result.detail || "Sign-in failed";
+        messageDiv.className = "error";
+        messageDiv.classList.remove("hidden");
+      }
+    } catch (error) {
+      messageDiv.textContent = "Sign-in failed.";
+      messageDiv.className = "error";
+      messageDiv.classList.remove("hidden");
+      console.error("Error signing in:", error);
+    }
+  });
+
+  logoutButton.addEventListener("click", async () => {
+    try {
+      await fetch("/auth/logout", { method: "POST" });
+      setAuthenticated(null);
+      await fetchActivityOptions();
+      showPage("home");
+      history.pushState(null, "", "#home");
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  });
+
   // Initialize app
-  fetchActivities();
+  window.addEventListener("hashchange", () => {
+    showPage(window.location.hash.slice(1));
+  });
+  checkSession();
 });

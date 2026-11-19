@@ -5,11 +5,29 @@ A super simple FastAPI application that allows students to view and sign up
 for extracurricular activities at Mergington High School.
 """
 
-from fastapi import FastAPI, HTTPException
+import hashlib
+import os
+import secrets
+from pathlib import Path
+
+from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
-import os
-from pathlib import Path
+
+
+SESSION_COOKIE = "mergington_session"
+sessions = {}
+
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+
+users = {
+    os.getenv("MERINGTON_ADMIN_EMAIL", "admin@mergington.edu"): hash_password(
+        os.getenv("MERINGTON_ADMIN_PASSWORD", "mergington123")
+    )
+}
 
 app = FastAPI(title="Mergington High School API",
               description="API for viewing and signing up for extracurricular activities")
@@ -83,9 +101,53 @@ def root():
     return RedirectResponse(url="/static/index.html")
 
 
+def require_login(session_id: str | None = Cookie(default=None, alias=SESSION_COOKIE)):
+    if not session_id or session_id not in sessions:
+        raise HTTPException(status_code=401, detail="Sign-in required")
+    return sessions[session_id]
+
+
+@app.get("/auth/session")
+def get_session(session_id: str | None = Cookie(default=None, alias=SESSION_COOKIE)):
+    email = sessions.get(session_id) if session_id else None
+    return {"authenticated": email is not None, "email": email}
+
+
+@app.post("/auth/login")
+def login(email: str, password: str, response: Response):
+    password_hash = users.get(email)
+    if not password_hash or not secrets.compare_digest(password_hash, hash_password(password)):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    session_id = secrets.token_urlsafe(32)
+    sessions[session_id] = email
+    response.set_cookie(
+        key=SESSION_COOKIE,
+        value=session_id,
+        httponly=True,
+        samesite="strict",
+        max_age=8 * 60 * 60,
+    )
+    return {"message": "Signed in", "email": email}
+
+
+@app.post("/auth/logout")
+def logout(response: Response, session_id: str | None = Cookie(default=None, alias=SESSION_COOKIE)):
+    if session_id:
+        sessions.pop(session_id, None)
+    response.delete_cookie(key=SESSION_COOKIE)
+    return {"message": "Signed out"}
+
+
 @app.get("/activities")
-def get_activities():
+def get_activities(email: str = Depends(require_login)):
+    del email
     return activities
+
+
+@app.get("/activities/options")
+def get_activity_options():
+    return list(activities.keys())
 
 
 @app.post("/activities/{activity_name}/signup")
@@ -108,7 +170,12 @@ def signup_for_activity(activity_name: str, email: str):
 
 
 @app.delete("/activities/{activity_name}/signup")
-def unregister_from_activity(activity_name: str, email: str):
+def unregister_from_activity(
+    activity_name: str,
+    email: str,
+    signed_in_email: str = Depends(require_login),
+):
+    del signed_in_email
     """Remove a student from an activity"""
     if activity_name not in activities:
         raise HTTPException(status_code=404, detail="Activity not found")
