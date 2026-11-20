@@ -35,26 +35,31 @@
             </div>
             <button type="submit">Sign In</button>
           </form>
+          <p class="account-prompt">
+            Don't have an account? <a href="mailto:admin@mergington.edu?subject=Account sign up">Sign up</a>.
+          </p>
         </div>
         <div id="signed-in-panel" class="hidden">
           <p id="signed-in-message"></p>
           <button id="logout-button" type="button">Sign Out</button>
         </div>
-        <h3>Sign Up for an Activity</h3>
-        <form id="signup-form">
-          <div class="form-group">
-            <label for="email">Student Email:</label>
-            <input type="email" id="email" required placeholder="your-email@mergington.edu" />
-          </div>
-          <div class="form-group">
-            <label for="activity">Select Activity:</label>
-            <select id="activity" required>
-              <option value="">-- Select an activity --</option>
-              <!-- Activity options will be loaded here -->
-            </select>
-          </div>
-          <button type="submit">Sign Up</button>
-        </form>
+        <div id="activity-signup" class="hidden">
+          <h3>Sign Up for an Activity</h3>
+          <form id="signup-form">
+            <div class="form-group">
+              <label for="email">Student Email:</label>
+              <input type="email" id="email" required placeholder="your-email@mergington.edu" />
+            </div>
+            <div class="form-group">
+              <label for="activity">Select Activity:</label>
+              <select id="activity" required>
+                <option value="">-- Select an activity --</option>
+                <!-- Activity options will be loaded here -->
+              </select>
+            </div>
+            <button type="submit">Sign Up</button>
+          </form>
+        </div>
         <div id="message" class="hidden"></div>
       </section>
 

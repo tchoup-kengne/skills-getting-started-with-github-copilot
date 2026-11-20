@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const signedInPanel = document.getElementById("signed-in-panel");
   const signedInMessage = document.getElementById("signed-in-message");
   const logoutButton = document.getElementById("logout-button");
+  const activitySignup = document.getElementById("activity-signup");
   const participantsNav = document.getElementById("participants-nav");
   const activitiesNav = document.getElementById("activities-nav");
   let authenticated = false;
@@ -48,6 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
     activitiesNav.classList.toggle("hidden", !authenticated);
     authPanel.classList.toggle("hidden", authenticated);
     signedInPanel.classList.toggle("hidden", !authenticated);
+    activitySignup.classList.toggle("hidden", !authenticated);
     signedInMessage.textContent = authenticated ? `Signed in as ${email}` : "";
 
     if (!authenticated) {
