@@ -15,13 +15,19 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitySignup = document.getElementById("activity-signup");
   const participantsNav = document.getElementById("participants-nav");
   const activitiesNav = document.getElementById("activities-nav");
+  const assistantNav = document.getElementById("assistant-nav");
+  const chatForm = document.getElementById("chat-form");
+  const chatInput = document.getElementById("chat-input");
+  const chatMessages = document.getElementById("chat-messages");
+  const chatSubmit = document.getElementById("chat-submit");
+  const conversation = [];
   let authenticated = false;
 
   function showPage(pageName) {
-    let validPage = ["home", "participants", "activities"].includes(pageName)
+    let validPage = ["home", "participants", "activities", "assistant"].includes(pageName)
       ? pageName
       : "home";
-    if (!authenticated && ["participants", "activities"].includes(validPage)) {
+    if (!authenticated && ["participants", "activities", "assistant"].includes(validPage)) {
       validPage = "home";
       history.replaceState(null, "", "#home");
     }
@@ -47,12 +53,15 @@ document.addEventListener("DOMContentLoaded", () => {
     authenticated = Boolean(email);
     participantsNav.classList.toggle("hidden", !authenticated);
     activitiesNav.classList.toggle("hidden", !authenticated);
+    assistantNav.classList.toggle("hidden", !authenticated);
     authPanel.classList.toggle("hidden", authenticated);
     signedInPanel.classList.toggle("hidden", !authenticated);
     activitySignup.classList.toggle("hidden", !authenticated);
     signedInMessage.textContent = authenticated ? `Signed in as ${email}` : "";
 
     if (!authenticated) {
+      conversation.length = 0;
+      chatMessages.replaceChildren();
       showPage("home");
       history.replaceState(null, "", "#home");
     }
@@ -376,6 +385,51 @@ document.addEventListener("DOMContentLoaded", () => {
       history.pushState(null, "", "#home");
     } catch (error) {
       console.error("Error signing out:", error);
+    }
+  });
+
+  chatForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const content = chatInput.value.trim();
+    if (!content || chatSubmit.disabled) return;
+
+    if (conversation.length >= 11) {
+      conversation.splice(0, conversation.length - 10);
+    }
+    conversation.push({ role: "user", content });
+    const userMessage = document.createElement("p");
+    userMessage.className = "chat-message user-message";
+    userMessage.textContent = content;
+    chatMessages.appendChild(userMessage);
+
+    const pendingMessage = document.createElement("p");
+    pendingMessage.className = "chat-message assistant-message";
+    pendingMessage.textContent = "Thinking...";
+    chatMessages.appendChild(pendingMessage);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    chatInput.value = "";
+    chatSubmit.disabled = true;
+
+    try {
+      const response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: conversation }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.detail || "The assistant could not answer.");
+      }
+
+      conversation.push({ role: "assistant", content: result.reply });
+      pendingMessage.textContent = result.reply;
+    } catch (error) {
+      pendingMessage.classList.add("chat-error");
+      pendingMessage.textContent = error.message || "Unable to contact the assistant.";
+    } finally {
+      chatSubmit.disabled = false;
+      chatInput.focus();
+      chatMessages.scrollTop = chatMessages.scrollHeight;
     }
   });
 

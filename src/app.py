@@ -9,14 +9,28 @@ import hashlib
 import os
 import secrets
 from pathlib import Path
+from typing import Literal
 
+from agent_framework import RawAgent
+from agent_framework.openai import OpenAIChatClient
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
+from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 
 
 SESSION_COOKIE = "mergington_session"
 sessions = {}
+_chat_agent: RawAgent | None = None
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage]
 
 
 def hash_password(password: str) -> str:
@@ -107,10 +121,50 @@ def require_login(session_id: str | None = Cookie(default=None, alias=SESSION_CO
     return sessions[session_id]
 
 
+def get_chat_agent() -> RawAgent:
+    global _chat_agent
+
+    if _chat_agent is not None:
+        return _chat_agent
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="The assistant is not configured. Set OPENAI_API_KEY on the server.",
+        )
+
+    _chat_agent = RawAgent(
+        client=OpenAIChatClient(model="gpt-4o-mini", api_key=api_key),
+        instructions="You are a helpful assistant for Mergington High School.",
+    )
+    return _chat_agent
+
+
 @app.get("/auth/session")
 def get_session(session_id: str | None = Cookie(default=None, alias=SESSION_COOKIE)):
     email = sessions.get(session_id) if session_id else None
     return {"authenticated": email is not None, "email": email}
+
+
+@app.post("/chat")
+async def chat(request: ChatRequest, email: str = Depends(require_login)):
+    del email
+    if not request.messages or len(request.messages) > 12:
+        raise HTTPException(status_code=422, detail="Send between 1 and 12 messages.")
+    if any(not message.content.strip() or len(message.content) > 2000 for message in request.messages):
+        raise HTTPException(status_code=422, detail="Messages must contain 1 to 2000 characters.")
+    if request.messages[-1].role != "user":
+        raise HTTPException(status_code=422, detail="The last message must be from the user.")
+
+    conversation = "\n".join(
+        f"{'User' if message.role == 'user' else 'Assistant'}: {message.content.strip()}"
+        for message in request.messages
+    )
+    response = await get_chat_agent().run(
+        "Continue this conversation and answer the latest user message:\n" + conversation
+    )
+    return {"reply": response.text}
 
 
 @app.post("/auth/login")

@@ -1,8 +1,10 @@
 from copy import deepcopy
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
+import src.app as app_module
 from src.app import activities, app
 
 
@@ -169,3 +171,30 @@ def test_login_rejects_invalid_credentials():
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Invalid email or password"
+
+
+def test_chat_requires_sign_in():
+    with TestClient(app) as anonymous_client:
+        response = anonymous_client.post(
+            "/chat",
+            json={"messages": [{"role": "user", "content": "Hello"}]},
+        )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Sign-in required"
+
+
+def test_chat_returns_agent_reply(client, monkeypatch):
+    class FakeAgent:
+        async def run(self, prompt):
+            assert "User: What activities are available?" in prompt
+            return SimpleNamespace(text="Chess and art are available.")
+
+    monkeypatch.setattr(app_module, "_chat_agent", FakeAgent())
+    response = client.post(
+        "/chat",
+        json={"messages": [{"role": "user", "content": "What activities are available?"}]},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"reply": "Chess and art are available."}

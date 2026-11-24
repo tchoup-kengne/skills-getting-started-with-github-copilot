@@ -9,21 +9,28 @@ A super simple FastAPI application that allows students to view and sign up for 
 
 ## Getting Started
 
-1. Install the dependencies:
+1. Create a virtual environment and install the dependencies:
 
    ```
-   pip install fastapi uvicorn
+   python -m venv .venv
+   source .venv/bin/activate
+   python -m pip install --pre -r requirements.txt
    ```
 
-2. Run the application:
+2. Set an OpenAI API key in the server terminal. Do not put the key in frontend files or commit it:
 
    ```
-   python app.py
+   export OPENAI_API_KEY="your-key"
    ```
 
-3. Open your browser and go to:
-   - API documentation: http://localhost:8000/docs
-   - Alternative documentation: http://localhost:8000/redoc
+3. Run the application from the repository root:
+
+   ```
+   uvicorn src.app:app --reload
+   ```
+
+4. Open http://localhost:8000 and sign in to use the assistant. The default local account is `admin@mergington.edu` with password `mergington123`.
+   API documentation is available at http://localhost:8000/docs.
 
 ## API Endpoints
 
@@ -31,6 +38,7 @@ A super simple FastAPI application that allows students to view and sign up for 
 | ------ | ----------------------------------------------------------------- | ------------------------------------------------------------------- |
 | GET    | `/activities`                                                     | Get all activities with their details and current participant count |
 | POST   | `/activities/{activity_name}/signup?email=student@mergington.edu` | Sign up for an activity                                             |
+| POST   | `/chat`                                                            | Send chat messages to the assistant (sign-in required)              |
 
 ## Data Model
 

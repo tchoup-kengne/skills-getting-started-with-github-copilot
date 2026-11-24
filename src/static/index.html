@@ -15,6 +15,7 @@
           <li><a class="active" href="#home" data-page="home" aria-current="page">Home</a></li>
           <li id="participants-nav" class="hidden"><a href="#participants" data-page="participants">Participant</a></li>
           <li id="activities-nav" class="hidden"><a href="#activities" data-page="activities">Activity</a></li>
+          <li id="assistant-nav" class="hidden"><a href="#assistant" data-page="assistant">Assistant</a></li>
           <li id="auth-nav" class="auth-nav"></li>
         </ul>
       </nav>
@@ -75,6 +76,16 @@
         <div id="activities-list">
           <p>Loading activities...</p>
         </div>
+      </section>
+
+      <section id="assistant" class="page hidden">
+        <h3>School Assistant</h3>
+        <div id="chat-messages" class="chat-messages" aria-live="polite" aria-relevant="additions"></div>
+        <form id="chat-form" class="chat-form">
+          <label for="chat-input">Ask a question</label>
+          <textarea id="chat-input" rows="3" maxlength="2000" required placeholder="How can I help?"></textarea>
+          <button id="chat-submit" type="submit">Send</button>
+        </form>
       </section>
     </main>
 

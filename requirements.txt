@@ -3,3 +3,4 @@ uvicorn
 httpx2
 watchfiles
 pytest
+agent-framework
